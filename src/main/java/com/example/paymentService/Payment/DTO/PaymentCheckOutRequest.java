@@ -3,8 +3,10 @@ package com.example.paymentService.Payment.DTO;
 import com.dodopayments.api.models.customers.Customer;
 import com.dodopayments.api.models.payments.Payment;
 
+import java.util.List;
+
 public record PaymentCheckOutRequest(
-        Payment.ProductCart productCart,
-        Customer customer
+        List<ProductDTO> productCart,
+        CustomerDTO customer
 ) {
 }

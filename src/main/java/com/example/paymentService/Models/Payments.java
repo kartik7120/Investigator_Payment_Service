@@ -2,9 +2,7 @@ package com.example.paymentService.Models;
 
 import com.example.paymentService.PaymentStatus;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 import org.hibernate.generator.values.GeneratedValues;
 
 import java.math.BigDecimal;
@@ -14,6 +12,8 @@ import java.util.List;
 @Table(name = "payments")
 @AllArgsConstructor
 @NoArgsConstructor
+@Getter
+@Setter
 public class Payments {
 
     @Id
@@ -22,13 +22,13 @@ public class Payments {
 
     private String email;
 
-    @Column(name = "order_id", unique = true, nullable = false)
-    private String orderId;
+    @Column(name = "payment_id", unique = true, nullable = true)
+    private String paymentId;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(nullable = true, precision = 12, scale = 2)
     private BigDecimal discountAmount;
 
     @Enumerated(EnumType.STRING)
@@ -36,7 +36,7 @@ public class Payments {
     private PaymentStatus paymentStatus;
 
     @Column(unique = true, nullable = false)
-    private String idempotencyKey;
+    private String sessionID;
 
     @OneToMany(mappedBy = "payments")
     private List<PaymentAttempts> paymentAttempts = new ArrayList<>();
