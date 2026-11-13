@@ -7,6 +7,7 @@ import com.dodopayments.api.models.checkoutsessions.CheckoutSessionResponse;
 import com.dodopayments.api.services.blocking.invoices.PaymentService;
 import com.example.paymentService.Payment.DTO.PaymentCheckOutRequest;
 import com.example.paymentService.Payment.service.DodoClient;
+import tools.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -45,7 +46,9 @@ public class PaymentController {
 
             URI url = URI.create(resp.checkoutUrl().get());
 
-            logger.info("CheckoutSession URL: ", url);
+            logger.info("CheckoutSession URL: {}", resp.checkoutUrl().orElseGet(() -> {
+                return "";
+            }));
 
             return ResponseEntity.status(HttpStatus.SEE_OTHER).location(url).build();
 
@@ -53,5 +56,17 @@ public class PaymentController {
             throw e;
 //            return ResponseEntity.internalServerError().body(e.getMessage());
         }
+    }
+
+    @PostMapping("/webhook")
+    public void webhookHandler(@RequestBody JsonNode webhook) {
+
+        String eventType = webhook.get("type").asText();
+
+        System.out.println("Webhook event type: " + eventType);
+
+        System.out.println("Webhook Event: " + webhook.toPrettyString());
+
+        // Handle different webhook events
     }
 }
