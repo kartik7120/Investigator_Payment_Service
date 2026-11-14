@@ -1,6 +1,5 @@
 package com.example.paymentService.Payment.service;
 
-import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -12,12 +11,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Service
-public class KafkaService {
+public class KafkaProducerService {
 
     @Autowired
     private KafkaProducer<String, String> kafkaProducer;
 
-    private Logger logger = Logger.getLogger(KafkaService.class.getName());
+    private Logger logger = Logger.getLogger(KafkaProducerService.class.getName());
 
     public boolean Publish(String payload, String topic, String value, String key) {
 
