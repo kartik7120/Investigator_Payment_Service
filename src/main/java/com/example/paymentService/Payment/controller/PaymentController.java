@@ -1,19 +1,13 @@
 package com.example.paymentService.Payment.controller;
 
-import com.dodopayments.api.client.DodoPaymentsClient;
-import com.dodopayments.api.client.okhttp.DodoPaymentsOkHttpClient;
 import com.dodopayments.api.core.UnwrapWebhookParams;
 import com.dodopayments.api.core.http.Headers;
-import com.dodopayments.api.models.checkoutsessions.CheckoutSessionRequest;
 import com.dodopayments.api.models.checkoutsessions.CheckoutSessionResponse;
 import com.dodopayments.api.models.webhooks.UnwrapWebhookEvent;
-import com.dodopayments.api.services.blocking.invoices.PaymentService;
 import com.example.paymentService.Payment.DTO.PaymentCheckOutRequest;
 import com.example.paymentService.Payment.service.DodoClient;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.RequestEntity;
 import org.springframework.web.bind.annotation.*;
 import tools.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
