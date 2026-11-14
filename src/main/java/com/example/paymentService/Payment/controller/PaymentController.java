@@ -28,7 +28,7 @@ public class PaymentController {
     @Autowired
     private DodoClient dodoClient;
 
-    @Value("dodo.webhook.key")
+    @Value("${dodo.webhook.key}")
     private String dodoWebhookKey;
 
     private final Logger logger = LoggerFactory.getLogger(PaymentController.class);
@@ -63,13 +63,15 @@ public class PaymentController {
     }
 
     @PostMapping("/webhook")
-    public void webhookHandler(@RequestBody JsonNode webhook, @RequestHeader HttpHeaders headers) {
+    public ResponseEntity<Void> webhookHandler(@RequestBody String webhookBody, @RequestHeader HttpHeaders headers) {
+
+//        Webhooks have a 30-second timeout for both connection and read operations. Process webhooks asynchronously by returning a 200 status code immediately, then handle the event in the background.
 
 //        Verify the webhook signature
 
         String webhookID = headers.getFirst("webhook-id");
         String webhookTimeStamp = headers.getFirst("webhook-timestamp");
-
+        String webHookSignature = headers.getFirst("webhook-signature");
         logger.info("Webhook id: {}", webhookID);
         logger.info("Webhook timestamp: {}", webhookTimeStamp);
         logger.info("Webhook key: {}", dodoWebhookKey);
@@ -79,35 +81,30 @@ public class PaymentController {
         Map<String, List<String>> headersMap = new HashMap<>();
         assert webhookID != null;
         assert webhookTimeStamp != null;
+        assert webHookSignature != null;
         headersMap.put("webhook-id", List.of(webhookID));
-        headersMap.put("webhook-signature", List.of(dodoWebhookKey));
+        headersMap.put("webhook-signature", List.of(webHookSignature));
         headersMap.put("webhook-timestamp", List.of(webhookTimeStamp));
         Headers WebHookValidationHeaders = Headers.builder().putAll(headersMap).build();
         UnwrapWebhookParams params = UnwrapWebhookParams.builder().headers(
-                WebHookValidationHeaders).build();
+                WebHookValidationHeaders).body(webhookBody).secret(dodoWebhookKey).build();
 
         UnwrapWebhookEvent event = dodoClient.getClient().webhooks().unwrap(
-            params
+                params
         );
 
         boolean isWebHookPayloadValid = event.isValid();
 
         if (isWebHookPayloadValid) {
 //          Handle if the webhook payload is not valid
-
-            System.out.println("Webhook Payload Valid");
+            logger.info("Webhook Payload Valid");
         } else {
-            System.out.println("Webhook payload is not valid");
+            logger.error("Webhook Payload Invalid");
         }
 
 //        Need to store this and add idempotency check since the webhook can be retried multiple times and only need to permanently store the id when all the operations are successful.
+        // Handle different webhook events using Kafka
 
-        String eventType = webhook.get("type").asText();
-
-        System.out.println("Webhook event type: " + eventType);
-
-        System.out.println("Webhook Event: " + webhook.toPrettyString());
-
-        // Handle different webhook events
+        return ResponseEntity.ok().build();
     }
 }
