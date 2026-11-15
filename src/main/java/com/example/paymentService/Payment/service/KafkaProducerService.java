@@ -16,7 +16,7 @@ public class KafkaProducerService {
     @Autowired
     private KafkaProducer<String, String> kafkaProducer;
 
-    private Logger logger = Logger.getLogger(KafkaProducerService.class.getName());
+    private final Logger logger = Logger.getLogger(KafkaProducerService.class.getName());
 
     public boolean Publish(String payload, String topic, String value, String key) {
 
