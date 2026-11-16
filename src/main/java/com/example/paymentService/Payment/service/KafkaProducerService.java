@@ -1,5 +1,6 @@
 package com.example.paymentService.Payment.service;
 
+import com.example.paymentService.Payment.KafkaTopics;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
@@ -18,9 +19,9 @@ public class KafkaProducerService {
 
     private final Logger logger = Logger.getLogger(KafkaProducerService.class.getName());
 
-    public boolean Publish(String payload, String topic, String value, String key) {
+    public boolean Publish(String payload, KafkaTopics topic, String key) {
 
-        ProducerRecord<String, String> record = new ProducerRecord<>(topic, key, value);
+        ProducerRecord<String, String> record = new ProducerRecord<>(topic.getKafkaTopicName(), key, payload);
 
         Future<RecordMetadata> recordMetaData = kafkaProducer.send(
                 record,
@@ -40,7 +41,7 @@ public class KafkaProducerService {
                                 Offset: %s,
                                 Timestamp: %s,
                                 Partitioner: %s,
-                                """.formatted(key, value, recordMetadata.offset(), recordMetadata.timestamp(), recordMetadata.partition()));
+                                """.formatted(key, payload, recordMetadata.offset(), recordMetadata.timestamp(), recordMetadata.partition()));
 
                     }
                 }

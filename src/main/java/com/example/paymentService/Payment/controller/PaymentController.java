@@ -5,11 +5,15 @@ import com.dodopayments.api.core.http.Headers;
 import com.dodopayments.api.models.checkoutsessions.CheckoutSessionResponse;
 import com.dodopayments.api.models.webhooks.UnwrapWebhookEvent;
 import com.example.paymentService.Payment.DTO.PaymentCheckOutRequest;
+import com.example.paymentService.Payment.KafkaTopics;
 import com.example.paymentService.Payment.service.DodoClient;
+import com.example.paymentService.Payment.service.KafkaProducerService;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
-import tools.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -29,7 +33,13 @@ public class PaymentController {
     private DodoClient dodoClient;
 
     @Value("${dodo.webhook.key}")
-    private String dodoWebhookKey;
+    private String dodoWebhookSecret;
+
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     private final Logger logger = LoggerFactory.getLogger(PaymentController.class);
 
@@ -74,33 +84,60 @@ public class PaymentController {
         String webHookSignature = headers.getFirst("webhook-signature");
         logger.info("Webhook id: {}", webhookID);
         logger.info("Webhook timestamp: {}", webhookTimeStamp);
-        logger.info("Webhook key: {}", dodoWebhookKey);
+        logger.info("Webhook key: {}", dodoWebhookSecret);
+        logger.info("Webhook Body: {}", webhookBody);
 
 //        First verify the payload using the SDK helper functions
 
-        Map<String, List<String>> headersMap = new HashMap<>();
-        assert webhookID != null;
-        assert webhookTimeStamp != null;
-        assert webHookSignature != null;
-        headersMap.put("webhook-id", List.of(webhookID));
-        headersMap.put("webhook-signature", List.of(webHookSignature));
-        headersMap.put("webhook-timestamp", List.of(webhookTimeStamp));
-        Headers WebHookValidationHeaders = Headers.builder().putAll(headersMap).build();
-        UnwrapWebhookParams params = UnwrapWebhookParams.builder().headers(
-                WebHookValidationHeaders).body(webhookBody).secret(dodoWebhookKey).build();
+        try {
+            Map<String, List<String>> headersMap = new HashMap<>();
+            assert webhookID != null;
+            assert webhookTimeStamp != null;
+            assert webHookSignature != null;
+            headersMap.put("webhook-id", List.of(webhookID));
+            headersMap.put("webhook-signature", List.of(webHookSignature));
+            headersMap.put("webhook-timestamp", List.of(webhookTimeStamp));
+            Headers WebHookValidationHeaders = Headers.builder().putAll(headersMap).build();
+            UnwrapWebhookParams params = UnwrapWebhookParams.builder().headers(
+                    WebHookValidationHeaders).body(webhookBody).secret(dodoWebhookSecret).build();
 
-        UnwrapWebhookEvent event = dodoClient.getClient().webhooks().unwrap(
-                params
-        );
+            UnwrapWebhookEvent event = dodoClient.getClient().webhooks().unwrap(
+                    params
+            );
 
-        boolean isWebHookPayloadValid = event.isValid();
+            boolean isPaymentSucceeded = event.isPaymentSucceeded();
 
-        if (isWebHookPayloadValid) {
+            if (isPaymentSucceeded) {
 //          Handle if the webhook payload is not valid
-            logger.info("Webhook Payload Valid");
-        } else {
+                logger.info("Payment succeeded");
+
+//            Send the webhook object in thr producer
+
+                JsonNode root;
+                try {
+                    root = objectMapper.readTree(webhookBody);
+
+                } catch (JsonProcessingException e) {
+                    throw new RuntimeException(e);
+                }
+
+                String paymentId = root
+                        .path("data")
+                        .path("payment_id")
+                        .asText();
+
+                logger.info("Payment ID: {}", paymentId);
+
+                kafkaProducerService.Publish(event.toString(), KafkaTopics.PAYMENT_SUCCESS, paymentId);
+            } else {
+                logger.error("Payment not succeeded");
+            }
+        } catch (Exception e) {
             logger.error("Webhook Payload Invalid");
+
+            throw new RuntimeException(e);
         }
+
 
 //        Need to store this and add idempotency check since the webhook can be retried multiple times and only need to permanently store the id when all the operations are successful.
         // Handle different webhook events using Kafka
