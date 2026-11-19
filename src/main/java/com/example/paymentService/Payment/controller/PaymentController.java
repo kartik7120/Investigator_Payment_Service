@@ -8,6 +8,7 @@ import com.example.paymentService.Payment.DTO.PaymentCheckOutRequest;
 import com.example.paymentService.Payment.KafkaTopics;
 import com.example.paymentService.Payment.service.DodoClient;
 import com.example.paymentService.Payment.service.KafkaProducerService;
+import com.example.paymentService.Payment.service.PaymentService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,6 +42,9 @@ public class PaymentController {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private PaymentService paymentService;
+
     private final Logger logger = LoggerFactory.getLogger(PaymentController.class);
 
     @PostMapping("/checkoutSessionRequest")
@@ -63,6 +67,10 @@ public class PaymentController {
             logger.info("CheckoutSession URL: {}", resp.checkoutUrl().orElseGet(() -> {
                 return "";
             }));
+
+//            Create a payment method with status Pending status
+
+            paymentService.createPendingPayment(resp.sessionId(), paymentInitiateDTO.customer().email());
 
             return ResponseEntity.status(HttpStatus.SEE_OTHER).location(url).build();
 
@@ -106,30 +114,29 @@ public class PaymentController {
             );
 
             boolean isPaymentSucceeded = event.isPaymentSucceeded();
+            JsonNode root;
+            try {
+                root = objectMapper.readTree(webhookBody);
+
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
+
+            String paymentId = root
+                    .path("data")
+                    .path("payment_id")
+                    .asText();
 
             if (isPaymentSucceeded) {
 //          Handle if the webhook payload is not valid
                 logger.info("Payment succeeded");
 
 //            Send the webhook object in thr producer
-
-                JsonNode root;
-                try {
-                    root = objectMapper.readTree(webhookBody);
-
-                } catch (JsonProcessingException e) {
-                    throw new RuntimeException(e);
-                }
-
-                String paymentId = root
-                        .path("data")
-                        .path("payment_id")
-                        .asText();
-
                 logger.info("Payment ID: {}", paymentId);
 
                 kafkaProducerService.Publish(event.toString(), KafkaTopics.PAYMENT_SUCCESS, paymentId);
             } else {
+                kafkaProducerService.Publish(event.toString(), KafkaTopics.PAYMENT_FAILED, paymentId);
                 logger.error("Payment not succeeded");
             }
         } catch (Exception e) {

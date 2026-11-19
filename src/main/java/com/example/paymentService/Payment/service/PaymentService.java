@@ -59,4 +59,51 @@ public class PaymentService {
 
         return paymentsRepository.findBySessionID(sessionID);
     }
+
+    public Payments createPendingPayment(String sessionID, String emailID) {
+        Payments payments = new Payments();
+        payments.setSessionID(sessionID);
+        payments.setPaymentStatus(PaymentStatus.PENDING);
+        payments.setEmail(emailID);
+        paymentsRepository.save(payments);
+        return payments;
+    }
+
+    public Payments getPaymentUsingSessionID(String sessionID) {
+
+        return paymentsRepository.findBySessionID(sessionID);
+    }
+
+    public Payments updatePaymentStatus(String sessionID, PaymentStatus paymentStatus) {
+
+        Payments payment = paymentsRepository.findBySessionID(sessionID);
+        payment.setPaymentStatus(paymentStatus);
+        return paymentsRepository.save(payment);
+    }
+
+
+    public void update(String checkoutSessionId, List<Integer> paymentItemsIDs) {
+        Payments payment = paymentsRepository.findBySessionID(checkoutSessionId);
+
+        payment.setPaymentStatus(PaymentStatus.SUCCESS);
+        List<PaymentItems> paymentItems = paymentItemsService.getByIds(paymentItemsIDs);
+
+        if (paymentItems.size() != paymentItemsIDs.size()) {
+            throw new IllegalArgumentException("Some payment items were not found");
+        }
+
+        BigDecimal totalAmount = paymentItems.stream()
+                .map(PaymentItems::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        payment.setSessionID(checkoutSessionId);
+        payment.setPaymentItems(paymentItems);
+        payment.setPaymentStatus(PaymentStatus.PENDING);
+        payment.setAmount(totalAmount);
+
+        paymentsRepository.save(payment);
+        payment.setPaymentItems(paymentItems);
+        paymentsRepository.save(payment);
+    }
+
 }

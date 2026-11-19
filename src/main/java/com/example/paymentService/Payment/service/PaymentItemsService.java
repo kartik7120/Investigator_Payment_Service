@@ -17,4 +17,9 @@ public class PaymentItemsService {
 
         return paymentItemsRepository.findByIdIn(paymentItemsIDs);
     }
+
+    public PaymentItems createPaymentItem(PaymentItems paymentItem) {
+
+        return paymentItemsRepository.save(paymentItem);
+    }
 }
