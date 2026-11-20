@@ -1,6 +1,7 @@
 package com.example.paymentService.Payment.config;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ public class KafkaProducerConfig {
         params.setProperty("auto.commit.interval.ms", "1000");
 
         params.setProperty("session.timeout.ms", "30000");
+        params.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
 
         return new KafkaProducer<>(params);
     }

@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -49,7 +50,7 @@ public class KafkaConsumerService {
             groupId = "payment-service"
     )
     @Transactional
-    public void PaymentSuccessConsumer(String message) {
+    public void PaymentSuccessConsumer(String message, Acknowledgment acknowledgment) {
 
         log.info("Payment event received: {}", message);
 
@@ -100,6 +101,7 @@ public class KafkaConsumerService {
                 webhook.getData().getCheckoutSessionId(), paymentItemsArr.stream().map(e -> e.getId().intValue()).toList()
         );
 
+        acknowledgment.acknowledge();
     }
 
     @KafkaListener(
@@ -107,7 +109,7 @@ public class KafkaConsumerService {
             groupId = "payment-service"
     )
     @Transactional
-    public void PaymentFailedConsumer(String message) {
+    public void PaymentFailedConsumer(String message, Acknowledgment acknowledgment) {
 
         log.info("Payment failed event received: {}", message);
 
@@ -152,5 +154,7 @@ public class KafkaConsumerService {
         paymentService.update(
                 webhookDTO.getData().getCheckoutSessionId(), paymentItemsArr.stream().map(e -> e.getId().intValue()).toList()
         );
+
+        acknowledgment.acknowledge();
     }
 }

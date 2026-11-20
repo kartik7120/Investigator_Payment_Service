@@ -3,7 +3,10 @@ package com.example.paymentService.Payment.controller;
 import com.dodopayments.api.core.UnwrapWebhookParams;
 import com.dodopayments.api.core.http.Headers;
 import com.dodopayments.api.models.checkoutsessions.CheckoutSessionResponse;
+import com.dodopayments.api.models.checkoutsessions.CheckoutSessionStatus;
+import com.dodopayments.api.models.payments.Payment;
 import com.dodopayments.api.models.webhooks.UnwrapWebhookEvent;
+import com.example.paymentService.Models.Payments;
 import com.example.paymentService.Payment.DTO.PaymentCheckOutRequest;
 import com.example.paymentService.Payment.KafkaTopics;
 import com.example.paymentService.Payment.service.DodoClient;
@@ -25,6 +28,7 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/payments")
@@ -47,14 +51,46 @@ public class PaymentController {
 
     private final Logger logger = LoggerFactory.getLogger(PaymentController.class);
 
+    @PostMapping("/generateIdempotentKey")
+    public ResponseEntity<String> generateIdempotentKey() {
+        String idempotencyKey = UUID.randomUUID().toString();
+        return ResponseEntity.ok(idempotencyKey);
+    }
+
     @PostMapping("/checkoutSessionRequest")
-    public ResponseEntity<String> createPaymentCheckoutSession(@RequestBody PaymentCheckOutRequest paymentInitiateDTO) {
+    public ResponseEntity<String> createPaymentCheckoutSession(@RequestBody PaymentCheckOutRequest paymentInitiateDTO, @RequestHeader("Idempotency-Key") String idempotencyKey) {
 
         try {
 
             logger.info("createPaymentCheckoutSession");
 
             logger.info("Request Body received: ", paymentInitiateDTO);
+
+            Payments p = paymentService.getPaymentWithIdempotentKey(idempotencyKey);
+
+            if (idempotencyKey == null) {
+                return ResponseEntity.badRequest().body("Invalid Idempotency-Key");
+            }
+
+            if (p != null) {
+                String dodoSessionID = String.valueOf(p.getSessionID());
+
+                if (dodoSessionID == null) {
+                    return ResponseEntity.badRequest().body("Session ID not found");
+                }
+
+                CheckoutSessionStatus sessionStatus = dodoClient.getClient().checkoutSessions().retrieve(dodoSessionID);
+
+                if (sessionStatus.paymentStatus().get().toString().equals("processing")) {
+                    Payment payment = dodoClient.getClient().payments().retrieve(sessionStatus.paymentId().get());
+
+                    if (payment == null) {
+                        return ResponseEntity.badRequest().body("Payment does not exists");
+                    } else {
+                        return ResponseEntity.status(HttpStatus.ACCEPTED).location(URI.create(payment.paymentLink().get())).build();
+                    }
+                }
+            }
 
             CheckoutSessionResponse resp = dodoClient.createCheckout(paymentInitiateDTO.productCart(), paymentInitiateDTO.customer());
 
@@ -70,7 +106,7 @@ public class PaymentController {
 
 //            Create a payment method with status Pending status
 
-            paymentService.createPendingPayment(resp.sessionId(), paymentInitiateDTO.customer().email());
+            paymentService.createPendingPayment(resp.sessionId(), paymentInitiateDTO.customer().email(), idempotencyKey);
 
             return ResponseEntity.status(HttpStatus.SEE_OTHER).location(url).build();
 

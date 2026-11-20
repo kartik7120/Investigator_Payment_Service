@@ -1,15 +1,24 @@
+
 package com.example.paymentService.Models;
 
 import com.example.paymentService.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.generator.values.GeneratedValues;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+
 @Entity
-@Table(name = "payments")
+@Table(
+        name = "payments",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_payment_idempotency_key",
+                        columnNames = "idempotency_key"
+                )
+        }
+)
 @AllArgsConstructor
 @NoArgsConstructor
 @Getter
@@ -22,13 +31,13 @@ public class Payments {
 
     private String email;
 
-    @Column(name = "payment_id", unique = true, nullable = true)
+    @Column(name = "payment_id", unique = true)
     private String paymentId;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
-    @Column(nullable = true, precision = 12, scale = 2)
+    @Column(precision = 12, scale = 2)
     private BigDecimal discountAmount;
 
     @Enumerated(EnumType.STRING)
@@ -37,6 +46,18 @@ public class Payments {
 
     @Column(unique = true, nullable = false)
     private String sessionID;
+
+    // API idempotency key
+    @Column(
+            name = "idempotency_key",
+            nullable = false,
+            updatable = false
+    )
+    private String idempotencyKey;
+
+    // Hash of the original request to detect key reuse
+    @Column(nullable = false, length = 64)
+    private String requestHash;
 
     @OneToMany(mappedBy = "payments")
     private List<PaymentAttempts> paymentAttempts = new ArrayList<>();

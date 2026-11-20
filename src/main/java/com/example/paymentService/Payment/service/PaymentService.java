@@ -1,6 +1,7 @@
 package com.example.paymentService.Payment.service;
 
 import com.dodopayments.api.client.DodoPaymentsClient;
+import com.dodopayments.api.models.payments.Payment;
 import com.example.paymentService.Models.PaymentItems;
 import com.example.paymentService.Models.Payments;
 import com.example.paymentService.Payment.repository.PaymentsRepository;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class PaymentService {
@@ -60,11 +62,12 @@ public class PaymentService {
         return paymentsRepository.findBySessionID(sessionID);
     }
 
-    public Payments createPendingPayment(String sessionID, String emailID) {
+    public Payments createPendingPayment(String sessionID, String emailID, String idempotencyKey) {
         Payments payments = new Payments();
         payments.setSessionID(sessionID);
         payments.setPaymentStatus(PaymentStatus.PENDING);
         payments.setEmail(emailID);
+        payments.setIdempotencyKey(idempotencyKey);
         paymentsRepository.save(payments);
         return payments;
     }
@@ -106,4 +109,10 @@ public class PaymentService {
         paymentsRepository.save(payment);
     }
 
+    public Payments getPaymentWithIdempotentKey(String idempotencyKey) {
+        Optional<Payments> p = paymentsRepository.findByIdempotencyKey(idempotencyKey);
+
+        return p.orElse(null);
+
+    }
 }
