@@ -115,4 +115,9 @@ public class PaymentService {
         return p.orElse(null);
 
     }
+
+    public PaymentStatus getPaymentStatus(String idempotentKey) {
+
+        return paymentsRepository.findBySessionID(idempotentKey).getPaymentStatus();
+    }
 }

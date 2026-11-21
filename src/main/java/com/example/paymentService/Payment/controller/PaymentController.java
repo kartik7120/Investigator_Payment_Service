@@ -12,6 +12,7 @@ import com.example.paymentService.Payment.KafkaTopics;
 import com.example.paymentService.Payment.service.DodoClient;
 import com.example.paymentService.Payment.service.KafkaProducerService;
 import com.example.paymentService.Payment.service.PaymentService;
+import com.example.paymentService.PaymentStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -55,6 +56,14 @@ public class PaymentController {
     public ResponseEntity<String> generateIdempotentKey() {
         String idempotencyKey = UUID.randomUUID().toString();
         return ResponseEntity.ok(idempotencyKey);
+    }
+
+    @PostMapping("/getPaymentStatus")
+    public ResponseEntity<PaymentStatus> getPaymentStatus(@RequestBody String idempotentKey) {
+
+        PaymentStatus paymentStatus = paymentService.getPaymentStatus(idempotentKey);
+
+        return ResponseEntity.ok(paymentStatus);
     }
 
     @PostMapping("/checkoutSessionRequest")
