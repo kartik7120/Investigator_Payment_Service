@@ -12,10 +12,12 @@ import com.example.paymentService.Payment.KafkaTopics;
 import com.example.paymentService.Payment.service.DodoClient;
 import com.example.paymentService.Payment.service.KafkaProducerService;
 import com.example.paymentService.Payment.service.PaymentService;
+import com.example.paymentService.Payment.service.WebhookService;
 import com.example.paymentService.PaymentStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.*;
@@ -49,6 +51,9 @@ public class PaymentController {
 
     @Autowired
     private PaymentService paymentService;
+
+    @Autowired
+    private WebhookService webhookService;
 
     private final Logger logger = LoggerFactory.getLogger(PaymentController.class);
 
@@ -126,6 +131,7 @@ public class PaymentController {
     }
 
     @PostMapping("/webhook")
+    @Transactional
     public ResponseEntity<Void> webhookHandler(@RequestBody String webhookBody, @RequestHeader HttpHeaders headers) {
 
 //        Webhooks have a 30-second timeout for both connection and read operations. Process webhooks asynchronously by returning a 200 status code immediately, then handle the event in the background.
@@ -159,6 +165,7 @@ public class PaymentController {
             );
 
             boolean isPaymentSucceeded = event.isPaymentSucceeded();
+
             JsonNode root;
             try {
                 root = objectMapper.readTree(webhookBody);
@@ -174,14 +181,34 @@ public class PaymentController {
 
             if (isPaymentSucceeded) {
 //          Handle if the webhook payload is not valid
+                boolean inserted = webhookService.saveWebhook(
+                        webhookID,
+                        KafkaTopics.PAYMENT_SUCCESS.getKafkaTopicName(),
+                        event.toString()
+                );
+
+                if (!inserted) {
+                    logger.info("Duplicate webhook: {}", webhookID);
+                }
+
                 logger.info("Payment succeeded");
 
 //            Send the webhook object in thr producer
                 logger.info("Payment ID: {}", paymentId);
 
-                kafkaProducerService.Publish(event.toString(), KafkaTopics.PAYMENT_SUCCESS, paymentId);
+//                kafkaProducerService.Publish(event.toString(), KafkaTopics.PAYMENT_SUCCESS, paymentId);
             } else {
-                kafkaProducerService.Publish(event.toString(), KafkaTopics.PAYMENT_FAILED, paymentId);
+                boolean inserted = webhookService.saveWebhook(
+                        webhookID,
+                        KafkaTopics.PAYMENT_FAILED.getKafkaTopicName(),
+                        event.toString()
+                );
+
+                if (!inserted) {
+                    logger.info("Duplicate webhook: {}", webhookID);
+                }
+
+//                kafkaProducerService.Publish(event.toString(), KafkaTopics.PAYMENT_FAILED, paymentId);
                 logger.error("Payment not succeeded");
             }
         } catch (Exception e) {
