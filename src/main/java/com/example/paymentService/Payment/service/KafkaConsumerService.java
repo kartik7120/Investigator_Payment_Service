@@ -92,53 +92,30 @@ public class KafkaConsumerService {
             topics = "payment.failed",
             groupId = "payment-service"
     )
-    @Transactional
-    public void PaymentFailedConsumer(String message, Acknowledgment acknowledgment) {
+    public void PaymentFailedConsumer(
+            String message,
+            Acknowledgment acknowledgment
+    ) {
 
         log.info("Payment failed event received: {}", message);
 
-        PaymentFailedWebhookDTO webhookDTO;
-
         try {
-            webhookDTO = objectMapper.readValue(message, PaymentFailedWebhookDTO.class);
-        } catch (JsonProcessingException e) {
+
+            PaymentEvent event = objectMapper.readValue(
+                    message,
+                    PaymentEvent.class
+            );
+
+            paymentEventProcessor.processPaymentFailed(event);
+
+            acknowledgment.acknowledge();
+
+        } catch (Exception e) {
+
+            log.error("Failed to process payment.failed event", e);
+
             throw new RuntimeException(e);
         }
-
-        List<Product> products = new ArrayList<>();
-
-        for (PaymentFailedWebhookDTO.ProductCart productCart : webhookDTO.getData().getProductCart()) {
-            Product product = dodoClient.getClient().products().retrieve(productCart.getProductId());
-            products.add(product);
-        }
-
-        List<PaymentItems> paymentItemsArr = new ArrayList<>();
-
-        for (Product product : products) {
-
-            PaymentItems paymentItems = new PaymentItems();
-
-            paymentItems.setProductName(product.name().get());
-            paymentItems.setPrice(new BigDecimal(product.price().toString()));
-            paymentItems.setQuantity(1);
-            paymentItems.setTotalAmount(new BigDecimal(product.price().toString()));
-            paymentItems.setSessionID(webhookDTO.getData().getCheckoutSessionId());
-
-            paymentItemsService.createPaymentItem(paymentItems);
-
-            paymentItemsArr.add(paymentItems);
-        }
-
-//        Payments payment = paymentService.getPayment(webhookDTO.getData().getCheckoutSessionId());
-
-        paymentAttemptsService.createPaymentAttempt(webhookDTO.getData().getCheckoutSessionId(), webhookDTO.getData().getPaymentId());
-
-        paymentService.updatePaymentStatus(webhookDTO.getData().getCheckoutSessionId(), PaymentStatus.FAILED);
-
-        paymentService.update(
-                webhookDTO.getData().getCheckoutSessionId(), paymentItemsArr.stream().map(e -> e.getId().intValue()).toList()
-        );
-
-        acknowledgment.acknowledge();
     }
+
 }
