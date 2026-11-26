@@ -34,7 +34,7 @@ public class PaymentService {
     public void createPayment(
             String sessionID,
             List<Integer> paymentItemsIDs,
-            String emailID) {
+            String emailID, String idempotentKey) {
 
         List<PaymentItems> paymentItems = paymentItemsService.getByIds(paymentItemsIDs);
 
@@ -46,7 +46,11 @@ public class PaymentService {
                 .map(PaymentItems::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        Payments payments = new Payments();
+        Payments payments = paymentsRepository.findByIdempotencyKey(idempotentKey).orElse(null);
+
+        if (payments == null) {
+            payments = new Payments();
+        }
 
         payments.setSessionID(sessionID);
         payments.setPaymentItems(paymentItems);
@@ -119,5 +123,16 @@ public class PaymentService {
     public PaymentStatus getPaymentStatus(String idempotentKey) {
 
         return paymentsRepository.findBySessionID(idempotentKey).getPaymentStatus();
+    }
+
+    public void createPaymentWithIdempotentKey(String idempotencyKey) {
+
+        Payments payment = new Payments();
+
+        payment.setPaymentStatus(PaymentStatus.PENDING);
+        payment.setIdempotencyKey(idempotencyKey);
+        payment.setAmount(new BigDecimal(0));
+        payment.setSessionID("");
+        paymentsRepository.save(payment);
     }
 }

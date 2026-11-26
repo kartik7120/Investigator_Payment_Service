@@ -17,6 +17,8 @@ import com.example.paymentService.PaymentStatus;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -60,6 +62,9 @@ public class PaymentController {
     @PostMapping("/generateIdempotentKey")
     public ResponseEntity<String> generateIdempotentKey() {
         String idempotencyKey = UUID.randomUUID().toString();
+
+        paymentService.createPaymentWithIdempotentKey(idempotencyKey);
+
         return ResponseEntity.ok(idempotencyKey);
     }
 
@@ -86,12 +91,9 @@ public class PaymentController {
                 return ResponseEntity.badRequest().body("Invalid Idempotency-Key");
             }
 
-            if (p != null) {
-                String dodoSessionID = String.valueOf(p.getSessionID());
+            String dodoSessionID = String.valueOf(p.getSessionID());
 
-                if (dodoSessionID == null) {
-                    return ResponseEntity.badRequest().body("Session ID not found");
-                }
+            if (p != null && !dodoSessionID.isEmpty()) {
 
                 CheckoutSessionStatus sessionStatus = dodoClient.getClient().checkoutSessions().retrieve(dodoSessionID);
 
@@ -106,7 +108,7 @@ public class PaymentController {
                 }
             }
 
-            CheckoutSessionResponse resp = dodoClient.createCheckout(paymentInitiateDTO.productCart(), paymentInitiateDTO.customer());
+            CheckoutSessionResponse resp = dodoClient.createCheckout(paymentInitiateDTO.productCart(), paymentInitiateDTO.customer(), idempotencyKey);
 
             logger.info("CheckoutSession Response: ", resp);
 
@@ -120,7 +122,7 @@ public class PaymentController {
 
 //            Create a payment method with status Pending status
 
-            paymentService.createPendingPayment(resp.sessionId(), paymentInitiateDTO.customer().email(), idempotencyKey);
+//            paymentService.createPendingPayment(resp.sessionId(), paymentInitiateDTO.customer().email(), idempotencyKey);
 
             return ResponseEntity.status(HttpStatus.SEE_OTHER).location(url).build();
 
@@ -184,7 +186,7 @@ public class PaymentController {
                 boolean inserted = webhookService.saveWebhook(
                         webhookID,
                         KafkaTopics.PAYMENT_SUCCESS.getKafkaTopicName(),
-                        event.toString()
+                        objectMapper.writeValueAsString(event)
                 );
 
                 if (!inserted) {

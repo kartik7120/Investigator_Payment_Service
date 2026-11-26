@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +31,9 @@ public class OutboxPublisher {
     @Autowired
     private KafkaProducerService kafkaProducerService;
 
+    @Autowired
+    private ObjectMapper objectMapper;
+
     @Scheduled(fixedDelay = 2000)
     public void publishPendingEvents() {
 
@@ -43,16 +47,10 @@ public class OutboxPublisher {
             try {
 
                 kafkaProducerService.Publish(
-                        event.getPayload(),
-                        KafkaTopics.valueOf(event.getEventType()),
+                        objectMapper.writeValueAsString(event),
+                        KafkaTopics.fromEventType(event.getEventType()),
                         event.getId().toString()
                 );
-
-//                kafkaTemplate.send(
-//                        "payment-events",
-//                        event.getId().toString(),
-//                        event.getPayload()
-//                ).get(10, TimeUnit.SECONDS);
 
                 statusService.markAsPublished(event.getId());
 

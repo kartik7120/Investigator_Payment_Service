@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +26,9 @@ import java.util.logging.Logger;
 public class PaymentEventProcessor {
 
     private final ProcessedEventRepository processedEventRepository;
-    private final ObjectMapper objectMapper;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     private final Logger log = Logger.getLogger(PaymentEventProcessor.class.getName());
 
@@ -51,16 +54,25 @@ public class PaymentEventProcessor {
             return;
         }
 
+        System.out.println("event payload : " + event.getPayload());
+
         // 3. Parse original DodoPayments payload
         DodoWebhookDTO webhook;
 
         try {
-            webhook = objectMapper.treeToValue(
-                    event.getPayload(),
-                    DodoWebhookDTO.class
-            );
+            if (event.getPayload().isTextual()) {
+                webhook = objectMapper.readValue(
+                        event.getPayload().asText(),
+                        DodoWebhookDTO.class
+                );
+            } else {
+                webhook = objectMapper.treeToValue(
+                        event.getPayload(),
+                        DodoWebhookDTO.class
+                );
+            }
         } catch (JsonProcessingException e) {
-            throw new RuntimeException("Invalid payment event", e);
+            throw new RuntimeException("Invalid payment event: " + e.getMessage());
         }
 
         // 4. Execute your existing payment business logic
@@ -84,12 +96,16 @@ public class PaymentEventProcessor {
             PaymentItems paymentItems = new PaymentItems();
 
             paymentItems.setProductName(product.name().get());
+            System.out.println("Price: " + product.price());
             paymentItems.setPrice(
-                    new BigDecimal(product.price().toString())
+                    new BigDecimal(product.price().oneTime().get().price())
             );
             paymentItems.setQuantity(1);
             paymentItems.setTotalAmount(
-                    new BigDecimal(product.price().toString())
+                    new BigDecimal(product.price().oneTime().get().price())
+            );
+            paymentItems.setProductId(
+                    product.productId()
             );
             paymentItems.setSessionID(
                     webhook.getData().getCheckoutSessionId()
@@ -132,7 +148,7 @@ public class PaymentEventProcessor {
         );
 
         if (inserted == 0) {
-            log.info("Duplicate payment.failed event ignored: "+
+            log.info("Duplicate payment.failed event ignored: " +
                     event.getEventId());
             return;
         }

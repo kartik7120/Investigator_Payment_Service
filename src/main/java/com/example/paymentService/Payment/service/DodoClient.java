@@ -1,15 +1,12 @@
 package com.example.paymentService.Payment.service;
 
 import com.dodopayments.api.client.DodoPaymentsClient;
-import com.dodopayments.api.client.okhttp.DodoPaymentsOkHttpClient;
 import com.dodopayments.api.models.checkoutsessions.*;
 
 import java.util.List;
 
-import com.dodopayments.api.models.customers.Customer;
 import com.dodopayments.api.models.payments.NewCustomer;
 import com.dodopayments.api.models.products.Product;
-import com.example.paymentService.Models.PaymentAttempts;
 import com.example.paymentService.Payment.DTO.CustomerDTO;
 import com.example.paymentService.Payment.DTO.ProductDTO;
 import jakarta.transaction.Transactional;
@@ -19,9 +16,7 @@ import lombok.Setter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -47,7 +42,7 @@ public class DodoClient {
     private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     @Transactional
-    public CheckoutSessionResponse createCheckout(List<ProductDTO> items, CustomerDTO customer) {
+    public CheckoutSessionResponse createCheckout(List<ProductDTO> items, CustomerDTO customer, String idempotencyKey) {
 
         Pair<List<Product>, List<Integer>> temp = productService.createProducts(items);
 
@@ -73,7 +68,7 @@ public class DodoClient {
 
         logger.info("CheckoutSession Response: {}", resp.toString());
 
-        paymentService.createPayment(resp.sessionId(), paymentItems, customer.email());
+        paymentService.createPayment(resp.sessionId(), paymentItems, customer.email(), idempotencyKey);
 
 //        Create PaymentAttempt and PaymentAttemptHistory
 

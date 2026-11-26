@@ -1,8 +1,10 @@
 package com.example.paymentService.Payment.service;
 
 import com.dodopayments.api.models.products.Product;
+import com.example.paymentService.Models.OutboxEvent;
 import com.example.paymentService.Models.PaymentItems;
 import com.example.paymentService.Models.Payments;
+import com.example.paymentService.Models.WebhookEvent;
 import com.example.paymentService.Payment.DTO.DodoWebhookDTO;
 import com.example.paymentService.Payment.DTO.PaymentEvent;
 import com.example.paymentService.Payment.DTO.PaymentFailedWebhookDTO;
@@ -63,17 +65,23 @@ public class KafkaConsumerService {
             Acknowledgment acknowledgment
     ) {
 
-        log.info("Payment event received: {}", message);
+        log.info("Payment event received for payment.succeeded: {}", message);
 
         try {
+            System.out.println("Outbox message event: " + message);
 
-            PaymentEvent event = objectMapper.readValue(
+            OutboxEvent event = objectMapper.readValue(
                     message,
-                    PaymentEvent.class
+                    OutboxEvent.class
             );
 
+            PaymentEvent paymentEvent = new PaymentEvent();
+            paymentEvent.setEventId(event.getId());
+            paymentEvent.setEventType(event.getEventType());
+            paymentEvent.setPayload(objectMapper.valueToTree(event.getPayload()));
+
             // Transaction completes before this method returns.
-            paymentEventProcessor.processPaymentSuccess(event);
+            paymentEventProcessor.processPaymentSuccess(paymentEvent);
 
             // Acknowledge only after successful processing.
             acknowledgment.acknowledge();
@@ -101,12 +109,19 @@ public class KafkaConsumerService {
 
         try {
 
-            PaymentEvent event = objectMapper.readValue(
+            OutboxEvent event = objectMapper.readValue(
                     message,
-                    PaymentEvent.class
+                    OutboxEvent.class
             );
 
-            paymentEventProcessor.processPaymentFailed(event);
+
+            PaymentEvent paymentEvent = new PaymentEvent();
+            paymentEvent.setEventId(event.getId());
+            paymentEvent.setEventType(event.getEventType());
+            paymentEvent.setPayload(objectMapper.valueToTree(event.getPayload()));
+
+            // Transaction completes before this method returns.
+            paymentEventProcessor.processPaymentSuccess(paymentEvent);
 
             acknowledgment.acknowledge();
 

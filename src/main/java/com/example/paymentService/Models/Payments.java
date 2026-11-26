@@ -55,10 +55,6 @@ public class Payments {
     )
     private String idempotencyKey;
 
-    // Hash of the original request to detect key reuse
-    @Column(nullable = false, length = 64)
-    private String requestHash;
-
     @OneToMany(mappedBy = "payments")
     private List<PaymentAttempts> paymentAttempts = new ArrayList<>();
 

@@ -2,16 +2,23 @@ package com.example.paymentService.Payment;
 
 import lombok.*;
 
+import java.util.Arrays;
+
 @Getter
-@NoArgsConstructor
+@RequiredArgsConstructor
 public enum KafkaTopics {
 
     PAYMENT_SUCCESS("payment.succeeded"),
     PAYMENT_FAILED("payment.failed");
 
-    String kafkaTopicName;
+    private final String kafkaTopicName;
 
-    KafkaTopics(String s) {
-        this.kafkaTopicName = s;
+    public static KafkaTopics fromEventType(String eventType) {
+        return Arrays.stream(values())
+                .filter(topic -> topic.kafkaTopicName.equals(eventType))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Unknown Kafka event type: " + eventType
+                ));
     }
 }

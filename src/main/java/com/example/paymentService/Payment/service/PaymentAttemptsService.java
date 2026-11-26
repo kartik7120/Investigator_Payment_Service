@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.logging.Logger;
 
 @Service
 public class PaymentAttemptsService {
@@ -18,11 +19,17 @@ public class PaymentAttemptsService {
     @Autowired
     private PaymentService paymentService;
 
+    private final Logger logger = Logger.getLogger(PaymentAttemptsService.class.getName());
+
     public PaymentAttempts createPaymentAttempt(String sessionID, String payment_provider_id) {
 
         PaymentAttempts paymentAttempts = new PaymentAttempts();
 
         Payments payments = paymentService.getPayment(sessionID);
+
+        if (payments == null) {
+            logger.info("payments is null");
+        }
 
         paymentAttempts.setPayments(payments);
         paymentAttempts.setAttempt_number(1);
