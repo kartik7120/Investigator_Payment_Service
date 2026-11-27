@@ -123,7 +123,7 @@ public class PaymentEventProcessor {
         );
 
         // 6. Update payment status
-        paymentService.updatePaymentStatus(
+        paymentService.UpdatePaymentStatus(
                 webhook.getData().getCheckoutSessionId(),
                 PaymentStatus.SUCCESS
         );
@@ -135,6 +135,12 @@ public class PaymentEventProcessor {
                         .map(e -> e.getId().intValue())
                         .toList()
         );
+
+        paymentAttemptsService.createPaymentAttempt(
+                webhook.getData().getCheckoutSessionId(),
+                webhook.getData().getPaymentId()
+        );
+
     }
 
 
@@ -215,7 +221,7 @@ public class PaymentEventProcessor {
         );
 
         // 6. Update payment status
-        paymentService.updatePaymentStatus(
+        paymentService.UpdatePaymentStatus(
                 webhookDTO.getData().getCheckoutSessionId(),
                 PaymentStatus.FAILED
         );
@@ -227,6 +233,10 @@ public class PaymentEventProcessor {
                         .map(e -> e.getId().intValue())
                         .toList()
         );
-    }
 
+        paymentAttemptsService.createPaymentAttempt(
+                webhookDTO.getData().getCheckoutSessionId(),
+                webhookDTO.getData().getPaymentId()
+        );
+    }
 }

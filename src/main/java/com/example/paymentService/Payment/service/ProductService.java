@@ -7,8 +7,10 @@ import com.dodopayments.api.models.products.Price;
 import com.dodopayments.api.models.products.Product;
 import com.dodopayments.api.models.products.ProductCreateParams;
 import com.example.paymentService.Models.PaymentItems;
+import com.example.paymentService.Models.Payments;
 import com.example.paymentService.Payment.DTO.ProductDTO;
 import com.example.paymentService.Payment.repository.PaymentItemsRepository;
+import com.example.paymentService.Payment.repository.PaymentsRepository;
 import kotlin.Pair;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,8 +26,9 @@ public class ProductService {
 
     private final DodoPaymentsClient client;
     private final PaymentItemsRepository paymentItemsRepository;
+    private final PaymentsRepository paymentsRepository;
 
-    public Pair<List<Product>, List<Integer>> createProducts(List<ProductDTO> products) {
+    public Pair<List<Product>, List<Integer>> createProducts(List<ProductDTO> products, String idempotentKey) {
 
         List<Product> productList = new ArrayList<>();
         List<Integer> paymentItemsIDs = new ArrayList<>();
@@ -49,6 +52,8 @@ public class ProductService {
             Product createdProduct =
                     client.products().create(productCreateParams);
 
+            Payments pts =  paymentsRepository.findByIdempotencyKey(idempotentKey).orElse(null);
+
             // Save payment item in database
             PaymentItems paymentItems = new PaymentItems();
 
@@ -56,6 +61,8 @@ public class ProductService {
             paymentItems.setQuantity(product.quantity());
             paymentItems.setPrice(BigDecimal.valueOf(product.price()));
             paymentItems.setProductName(product.name());
+            paymentItems.setPayment(pts);
+
 
             paymentItems.setTotalAmount(
                     BigDecimal.valueOf(product.price())

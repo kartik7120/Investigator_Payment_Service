@@ -44,7 +44,7 @@ public class DodoClient {
     @Transactional
     public CheckoutSessionResponse createCheckout(List<ProductDTO> items, CustomerDTO customer, String idempotencyKey) {
 
-        Pair<List<Product>, List<Integer>> temp = productService.createProducts(items);
+        Pair<List<Product>, List<Integer>> temp = productService.createProducts(items, idempotencyKey);
 
         List<Product> products = temp.getFirst();
         List<Integer> paymentItems = temp.getSecond();

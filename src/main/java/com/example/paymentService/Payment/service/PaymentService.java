@@ -81,11 +81,16 @@ public class PaymentService {
         return paymentsRepository.findBySessionID(sessionID);
     }
 
-    public Payments updatePaymentStatus(String sessionID, PaymentStatus paymentStatus) {
+    @Transactional
+    public void UpdatePaymentStatus(String sessionID, PaymentStatus paymentStatus) {
 
         Payments payment = paymentsRepository.findBySessionID(sessionID);
-        payment.setPaymentStatus(paymentStatus);
-        return paymentsRepository.save(payment);
+
+        System.out.println("Updating payment status for sessionID: " + sessionID);
+
+        System.out.println("Updating this payment object : " + payment);
+
+        paymentsRepository.updatePaymentStatus(sessionID, paymentStatus);
     }
 
 
@@ -105,7 +110,6 @@ public class PaymentService {
 
         payment.setSessionID(checkoutSessionId);
         payment.setPaymentItems(paymentItems);
-        payment.setPaymentStatus(PaymentStatus.PENDING);
         payment.setAmount(totalAmount);
 
         paymentsRepository.save(payment);
